@@ -193,13 +193,13 @@ class Timesheet
       if User.current.allowed_to?(:see_all_project_timesheets, nil, :global => true)
         user_scope = User.all
       else
-        user_scope = [User.current]
+        user_scope = User.where(id: User.current.id)
       end
     else
       if User.current.allowed_to?(:see_all_project_timesheets, nil, :global => true)
         user_scope = User.active
       else
-        user_scope = [User.current]
+        user_scope = User.where(id: User.current.id)
       end
     end
 
@@ -283,7 +283,7 @@ class Timesheet
       end
       if self.projects.present?
         condition_str << "#{TimeEntry.table_name}.project_id IN (?)"
-        condition_params << self.projects
+        condition_params << self.projects.pluck(:id)
       end
       if self.activities.present?
         condition_str << "activity_id IN (?)"
