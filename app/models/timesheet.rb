@@ -51,7 +51,7 @@ class Timesheet
       self.activities =  TimeEntryActivity.all.collect { |a| a.id.to_i }
     end
 
-    unless options[:users].nil?
+    unless options[:users].blank?
       self.users = options[:users].collect { |u| u.to_i }
     else
       self.users = Timesheet.viewable_users.collect {|user| user.id.to_i }
@@ -206,6 +206,26 @@ class Timesheet
     user_scope.select {|user|
       user.allowed_to?(:log_time, nil, :global => true)
     }
+  end
+
+  def options_for_session(options)
+    # Provide serializable hash to save to session
+    # Timesheet object can initialize with Parameters built from this hash
+
+    # Save parameters as pure hash, not Parameters object,
+    # to save space, especially in cookie-based session
+    result = options.clone.permit!.to_hash
+
+    # Do not save full user and project list if it is equal to initial selection
+    users_in_options = (result['users'] || []).to_set
+    users_available = Timesheet.viewable_users.map { |user| user.id.to_i.to_s }.to_set
+    result['users'] = [] if users_in_options == users_available
+
+    projects_in_options = (result['projects'] || []).to_set
+    projects_available = @allowed_projects.pluck(:id).map(&:to_s).to_set
+    result['projects'] = [] if projects_in_options == projects_available
+
+    result
   end
 
   protected
