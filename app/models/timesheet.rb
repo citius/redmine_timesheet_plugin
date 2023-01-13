@@ -203,8 +203,9 @@ class Timesheet
       end
     end
 
-    user_scope.select {|user|
-      user.allowed_to?(:log_time, nil, :global => true)
+    # faster alternative that avoids loading roles for each user
+    user_scope.eager_load(members: :roles).select { |u|
+      u.members.any? { |m| m.roles.any? { |r| r.permissions.include?(:log_time) } }
     }
   end
 
