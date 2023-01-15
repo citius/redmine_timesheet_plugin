@@ -51,7 +51,7 @@ class Timesheet
       self.activities =  TimeEntryActivity.all.collect { |a| a.id.to_i }
     end
 
-    unless options[:users].nil?
+    unless options[:users].blank?
       self.users = options[:users].collect { |u| u.to_i }
     else
       self.users = Timesheet.viewable_users.collect {|user| user.id.to_i }
@@ -193,19 +193,40 @@ class Timesheet
       if User.current.allowed_to?(:see_all_project_timesheets, nil, :global => true)
         user_scope = User.all
       else
-        user_scope = [User.current]
+        user_scope = User.where(id: User.current.id)
       end
     else
       if User.current.allowed_to?(:see_all_project_timesheets, nil, :global => true)
         user_scope = User.active
       else
-        user_scope = [User.current]
+        user_scope = User.where(id: User.current.id)
       end
     end
 
-    user_scope.select {|user|
-      user.allowed_to?(:log_time, nil, :global => true)
+    # faster alternative that avoids loading roles for each user
+    user_scope.eager_load(members: :roles).select { |u|
+      u.members.any? { |m| m.roles.any? { |r| r.permissions.include?(:log_time) } }
     }
+  end
+
+  def options_for_session(options)
+    # Provide serializable hash to save to session
+    # Timesheet object can initialize with Parameters built from this hash
+
+    # Save parameters as pure hash, not Parameters object,
+    # to save space, especially in cookie-based session
+    result = options.clone.permit!.to_hash
+
+    # Do not save full user and project list if it is equal to initial selection
+    users_in_options = (result['users'] || []).to_set
+    users_available = Timesheet.viewable_users.map { |user| user.id.to_i.to_s }.to_set
+    result['users'] = [] if users_in_options == users_available
+
+    projects_in_options = (result['projects'] || []).to_set
+    projects_available = @allowed_projects.pluck(:id).map(&:to_s).to_set
+    result['projects'] = [] if projects_in_options == projects_available
+
+    result
   end
 
   protected
@@ -263,7 +284,7 @@ class Timesheet
       end
       if self.projects.present?
         condition_str << "#{TimeEntry.table_name}.project_id IN (?)"
-        condition_params << self.projects
+        condition_params << self.projects.pluck(:id)
       end
       if self.activities.present?
         condition_str << "activity_id IN (?)"

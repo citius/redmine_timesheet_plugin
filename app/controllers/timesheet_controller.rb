@@ -137,25 +137,34 @@ class TimesheetController < ApplicationController
   end
 
   def load_filters_from_session
-    if session[SessionKey]
-      @timesheet = Timesheet.new(session[SessionKey])
+    session_params = session[SessionKey]
+    if session_params && !session_params.instance_of?(ActionController::Parameters)
+      # Convert parameters from pure hash to Parameters
+      session_params = ActionController::Parameters.new(session_params)
+    end
+
+    if session_params
+      @timesheet = Timesheet.new(session_params)
       @timesheet.period_type = Timesheet::ValidPeriodType[:default]
     end
 
-    if session[SessionKey] && session[SessionKey]['projects']
+    if session_params && session_params['projects']
       @timesheet.projects = allowed_projects.find_all { |project|
-        session[SessionKey]['projects'].include?(project.id.to_s)
+        session_params['projects'].include?(project.id.to_s)
       }
     end
   end
 
   def save_filters_to_session(timesheet)
     if params[:timesheet]
+      options_hash = timesheet.options_for_session(params[:timesheet])
+
       # Check that the params will fit in the session before saving
       # prevents an ActionController::Session::CookieStore::CookieOverflow
-      encoded = Base64.encode64(Marshal.dump(params[:timesheet]))
+      encoded = Base64.encode64(Marshal.dump(options_hash))
+
       if encoded.size < 2.kilobytes # Only use 2K of the cookie
-        session[SessionKey] = params[:timesheet]
+        session[SessionKey] = options_hash
       end
     end
 
