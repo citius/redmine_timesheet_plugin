@@ -1,3 +1,4 @@
+require_dependency 'user'
 module RedmineTimesheetPlugin
   module Patches
     module UserPatch
@@ -58,4 +59,8 @@ module RedmineTimesheetPlugin
       end
     end
   end
+end
+
+unless User.included_modules.include? RedmineTimesheetPlugin::Patches::UserPatch
+  User.send(:include, RedmineTimesheetPlugin::Patches::UserPatch)
 end

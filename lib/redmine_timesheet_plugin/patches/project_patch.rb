@@ -1,3 +1,5 @@
+require_dependency 'project'
+
 module RedmineTimesheetPlugin
   module Patches
     module ProjectPatch
@@ -77,4 +79,8 @@ module RedmineTimesheetPlugin
       end
     end
   end
+end
+
+unless Project.included_modules.include? RedmineTimesheetPlugin::Patches::ProjectPatch
+  Project.send(:include, RedmineTimesheetPlugin::Patches::ProjectPatch)
 end
